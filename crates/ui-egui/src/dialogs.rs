@@ -243,6 +243,9 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 600.0
             } else if compact {
                 260.0
+            } else if ai_owns(&d.fields) {
+                // the setup flow's cards are 460 points wide
+                480.0
             } else if curves {
                 300.0
             } else {
@@ -316,6 +319,7 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                     about_tab_body(app, ui, chosen);
                 }
                 DialogKind::Command if crate::guide_layout_ui::owns(&fields) => outcome = crate::guide_layout_ui::body(app, ui, &mut fields, interactive),
+                DialogKind::Command if ai_owns(&fields) => outcome = ai_body(app, ui, &mut fields),
                 DialogKind::Command if crate::brush_preset_dialog::owns(&fields) => {
                     outcome = crate::brush_preset_dialog::body(app, ui, &mut fields, interactive)
                 }
@@ -382,8 +386,9 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 }
             }
             crate::field_tab::end(ui.ctx(), tab);
-            if crate::guide_layout_ui::owns(&fields) || crate::brush_preset_dialog::owns(&fields) {
-                // These dialogs own their right-side actions and validate Enter themselves.
+            if crate::guide_layout_ui::owns(&fields) || crate::brush_preset_dialog::owns(&fields) || ai_owns(&fields) {
+                // These dialogs own their right-side actions and validate Enter themselves (the AI
+                // dialogs send only when Generate is clicked).
             } else if crate::color_picker_ui::owns(&fields) {
                 if interactive && outcome.is_none() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                     outcome = Some(true);
@@ -537,6 +542,27 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
     ctx.data_mut(|m| m.insert_temp(egui::Id::new(RECTS), shown));
 }
 
+/// An AI dialog (Edit › AI, the AI setup flow): desktop only (`crate::ai`).
+#[cfg(not(target_arch = "wasm32"))]
+fn ai_owns(fields: &serde_json::Map<String, Value>) -> bool {
+    crate::ai::owns(fields)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn ai_owns(_: &serde_json::Map<String, Value>) -> bool {
+    false
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn ai_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, fields: &mut serde_json::Map<String, Value>) -> Option<bool> {
+    crate::ai::body(app, ui, fields)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn ai_body(_: &mut PhotocraftApp, _: &mut egui::Ui, _: &mut serde_json::Map<String, Value>) -> Option<bool> {
+    Some(false)
+}
+
 /// The About window's tabs, as stored in its `tab` field.
 pub const ABOUT_TABS: [&str; 3] = ["about", "contributors", "models"];
 
@@ -617,6 +643,8 @@ pub fn confirm(app: &mut PhotocraftApp, id: u64) -> Result<Value, String> {
             r
         }
         DialogKind::Command if crate::guide_layout_ui::owns(&d.fields) => crate::guide_layout_ui::confirm(app, &d.fields),
+        // An AI dialog sends only on its Generate button: confirming it just closes it.
+        DialogKind::Command if ai_owns(&d.fields) => Ok(Value::Null),
         DialogKind::Command if crate::brush_preset_dialog::owns(&d.fields) => crate::brush_preset_dialog::confirm(app, &d.fields),
         DialogKind::Command if crate::fill_ui::owns(&d.fields) => crate::fill_ui::confirm(app, &d.fields),
         DialogKind::Command if crate::pattern_fill_ui::owns(&d.fields) => crate::pattern_fill_ui::confirm(app, &d.fields),

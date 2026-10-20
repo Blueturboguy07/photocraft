@@ -83,6 +83,20 @@ use photocraft_ui_egui::PhotocraftApp;
 /// Matches the `.desktop` file and hicolor icon name, so Wayland docks pick up the icon.
 const APP_ID: &str = "ai.storyteller.photocraft";
 
+/// What publik needs to know about this build. The app token is public by design (it can only mint
+/// capped keys attributed to PhotoCraft) and lives at the repository root, so source builds carry
+/// it. AI settings (`ai.json`) go in `config_dir`, next to `preferences.json`.
+fn app_info(config_dir: Option<std::path::PathBuf>) -> photocraft_ui_egui::ai::AppInfo {
+    photocraft_ui_egui::ai::AppInfo {
+        slug: "photocraft",
+        name: "PhotoCraft",
+        version: env!("CARGO_PKG_VERSION"),
+        app_token: include_str!("../../../publik-app-token.txt"),
+        dialects: &["images"],
+        config_dir,
+    }
+}
+
 /// Windows and Linux: no OS title bar; the app's top bar is the title bar, with its own caption
 /// buttons and edge resizing (`photocraft_ui_egui::titlebar`), as Photoshop does on Windows. macOS
 /// keeps its traffic lights over the integrated title strip.
@@ -447,6 +461,13 @@ mod launch_args_tests {
 }
 
 fn main() -> eframe::Result {
+    // Builder check (publikhq.com/skills/setup.md): the built app provisions publik API for real
+    // and prints one line. The builder who runs it is the consent. Before anything else, so the
+    // check opens no window and leaves no log file.
+    if std::env::var_os("PUBLIK_SELF_TEST").is_some() {
+        print_stdout(&format!("{}\n", photocraft_ui_egui::ai::self_test(&app_info(services::config_dir()))));
+        return Ok(());
+    }
     // First, so the panic hook and every start-up warning are recorded (`logging`).
     let logger = logging::install();
     crash_guard::install_hook();
@@ -730,6 +751,16 @@ fn main() -> eframe::Result {
             #[cfg(not(target_os = "linux"))]
             let session = Session::new();
             let mut app = PhotocraftApp::new(session, services);
+            // AI through publik API or the person's own key (Edit › AI); the first launch asks. Only
+            // with a settings folder to keep the choice in; the first-launch dialog stays closed
+            // while an agent drives the app over `--control`.
+            if let Some(dir) = services::config_dir() {
+                let mut ai = photocraft_ui_egui::ai::Ai::new(app_info(Some(dir)));
+                if control.is_some() {
+                    ai.skip_first_run();
+                }
+                app.ai = Some(ai);
+            }
             app.min_frame_ms = uncapped.then_some(1000.0 / 240.0);
             app.integrated_titlebar = cfg!(target_os = "macos");
             app.custom_titlebar = custom_titlebar;

@@ -147,6 +147,11 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
     if let Some(r) = crate::plugin_ui::menu(app, id, &params) {
         return r;
     }
+    // Edit › AI (desktop, where AI is on): Generative Fill…, Generate Image…, AI Settings….
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(r) = crate::ai::menu(app, id) {
+        return r;
+    }
     if id == "window.panel.brushSettings" {
         app.ui.brush_tab = 0;
     }
@@ -694,6 +699,10 @@ pub fn is_enabled(app: &PhotocraftApp, id: &str) -> bool {
     if let Some(e) = crate::plugin_ui::is_enabled(app, id) {
         return e;
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(e) = crate::ai::is_enabled(app, id) {
+        return e;
+    }
     if let Some(e) = crate::transform_tool::is_enabled(app, id) {
         return e;
     }
@@ -973,6 +982,8 @@ pub fn menu_items(app: &PhotocraftApp) -> Vec<MenuItem> {
         }
     }
     crate::plugin_ui::insert_menu_items(app, &mut items);
+    #[cfg(not(target_arch = "wasm32"))]
+    crate::ai::insert_menu_items(app, &mut items);
     if let Some(mask) = app.session.active().and_then(|s| s.active_layer.and_then(|id| s.doc.layer(id))).and_then(|l| l.mask.as_ref())
         && let Some(item) = items.iter_mut().find(|i| i.id == "layer.layerMask.enabled")
     {

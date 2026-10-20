@@ -19,6 +19,9 @@ pub mod adjust_dialog;
 pub mod adjust_editors;
 pub mod adjust_preview;
 pub mod adjust_ui;
+/// AI through publik API or the person's own key (Edit › AI, Preferences › AI): desktop only.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod ai;
 mod alt_grab;
 pub mod analysis_ui;
 pub mod anchor_tools;
@@ -859,6 +862,11 @@ pub struct PhotocraftApp {
     last_frame_start_ms: f64,
     /// Background job bookkeeping: opening tabs, control replies waiting on a job.
     pub jobs: jobs_ui::JobsUi,
+    /// AI through publik API or the person's own key (Edit › AI, Preferences › AI). `None` until
+    /// the desktop app installs it, and in tests, scripts and the browser build, where no setup
+    /// dialog may appear and nothing may be sent.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub ai: Option<ai::Ai>,
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
     live_tokens: theme::live::LiveTokens,
 }
@@ -998,6 +1006,8 @@ impl PhotocraftApp {
             min_frame_ms: None,
             last_frame_start_ms: 0.0,
             jobs: Default::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ai: None,
             #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
             live_tokens: theme::live::LiveTokens::from_env(),
         };
@@ -1931,6 +1941,9 @@ impl eframe::App for PhotocraftApp {
         self.collect_screenshots(ctx);
         self.issue_screenshots(ctx);
         prefs_ui::tick(self, ctx);
+        // AI requests that came back are placed; the first launch asks how to set AI up.
+        #[cfg(not(target_arch = "wasm32"))]
+        ai::frame(self, ctx);
         monitor_status::poll_frame(self, ctx, frame);
         // Control requests and persisted preferences can change the language in this frame.
         i18n::sync_context(ctx, &self.session.prefs().interface.language);

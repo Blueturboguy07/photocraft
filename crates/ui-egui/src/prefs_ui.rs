@@ -1094,7 +1094,14 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Valu
             info.extend(gpu_memory_lines(app));
             f.insert("__gpuInfo".into(), json!(info));
             let system = system_theme(app, ui.ctx());
-            prefs_body(ui, f, system);
+            // Preferences › AI (desktop, where AI is on): `crate::ai` draws it.
+            #[cfg(not(target_arch = "wasm32"))]
+            if app.ai.is_some() {
+                let mut ai = |ui: &mut egui::Ui| crate::ai::prefs_section(app, ui);
+                prefs_body(ui, f, system, Some(&mut ai));
+                return;
+            }
+            prefs_body(ui, f, system, None);
         }
         "shortcuts" => shortcuts_body(app, ui, f),
         "presets" => presets_body(app, ui, f),
@@ -1241,8 +1248,27 @@ fn preference_sections(values: &Value, search: &str) -> Vec<(&'static str, &'sta
         .collect()
 }
 
-/// Preferences: section list on the left, the section's settings on the right.
-fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui::Theme>) {
+/// The AI section is listed: it is on, and the search is empty or names it.
+fn ai_section_listed(on: bool, search: &str) -> bool {
+    let query = search.trim().to_lowercase();
+    on && (query.is_empty() || ["ai", "publik api", "generative fill", "generate image", "own key"].iter().any(|k| k.contains(&query)))
+}
+
+/// The title of `section`: Preferences' own, or AI's.
+fn section_title(section: &str) -> &'static str {
+    if section == AI_SECTION.0 {
+        return AI_SECTION.1;
+    }
+    SECTIONS.iter().find(|(id, _)| *id == section).map_or("General", |(_, t)| *t)
+}
+
+/// Preferences › AI: listed last, drawn by `crate::ai` (desktop only). Its settings take effect at
+/// once; they are not part of `values`.
+pub(crate) const AI_SECTION: (&str, &str) = ("ai", "AI");
+
+/// Preferences: section list on the left, the section's settings on the right. `ai` draws the AI
+/// section where AI is on.
+fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui::Theme>, mut ai: Option<&mut dyn FnMut(&mut egui::Ui)>) {
     let t = Tokens::get(ui.ctx());
     let mut section = f.get("section").and_then(Value::as_str).unwrap_or("general").to_string();
     let mut values = f.get("values").cloned().unwrap_or(Value::Null);
@@ -1250,7 +1276,10 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui
     let lang = crate::i18n::Lang::from_pref(values.pointer("/interface/language").and_then(Value::as_str).unwrap_or("auto"));
     let mut search = f.get("__search").and_then(Value::as_str).unwrap_or("").to_string();
     crate::widgets::text_field(ui, ui.id().with("prefs-search"), &mut search, tl!("Search settings…"), ui.available_width(), false);
-    let found = preference_sections(&values, &search);
+    let mut found = preference_sections(&values, &search);
+    if ai_section_listed(ai.is_some(), &search) {
+        found.push(AI_SECTION);
+    }
     if !found.iter().any(|(id, _)| *id == section)
         && let Some((first, _)) = found.first()
     {
@@ -1266,7 +1295,7 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui
             }
             for &(id, title) in &found {
                 let sel = section == id;
-                let empty = !has_visible_fields(&values, id);
+                let empty = id != AI_SECTION.0 && !has_visible_fields(&values, id);
                 let (rect, resp) = ui.allocate_exact_size(vec2(170.0, 22.0), Sense::click());
                 if sel {
                     ui.painter().rect_filled(rect, t.radius_sm, t.row_selected);
@@ -1300,7 +1329,7 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui
         crate::widgets::vline(ui, content_height);
         ui.vertical(|ui| {
             ui.set_width((ui.available_width() - 12.0).max(340.0));
-            let title = SECTIONS.iter().find(|(id, _)| *id == section).map_or("General", |(_, t)| *t);
+            let title = section_title(&section);
             ui.label(RichText::new(tl!(&title)).font(crate::theme::semibold(14.0)).color(t.text));
             let show_all = search.trim().is_empty()
                 || title.to_lowercase().contains(&search.trim().to_lowercase())
@@ -1310,7 +1339,11 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>, system: Option<egui
             egui::ScrollArea::vertical().max_height(content_height - 30.0).id_salt("prefs-scroll").show(ui, |ui| {
                 let order: Vec<String> =
                     f.get("__order").and_then(|o| o.get(&section)).and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
-                if !has_visible_fields(&values, &section) {
+                if section == AI_SECTION.0 {
+                    if let Some(ai) = ai.as_mut() {
+                        ai(ui);
+                    }
+                } else if !has_visible_fields(&values, &section) {
                     ui.add_space(4.0);
                     ui.label(RichText::new(tl!("These settings aren't available in PhotoCraft yet.")).color(t.text_faint));
                 } else if let Some(obj) = values.get_mut(&section).and_then(Value::as_object_mut) {
