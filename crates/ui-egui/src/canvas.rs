@@ -2900,8 +2900,6 @@ fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 home_recent(app, ui, &recent);
             }
             ui.add_space(26.0);
-            crate::links::discord_button(app, ui, 190.0);
-            ui.add_space(10.0);
             crate::links::link_row(app, ui);
         });
     });
@@ -7302,7 +7300,7 @@ mod tests {
     }
 
     /// A tiling window manager can hand PhotoCraft a canvas narrower than the Home card (460
-    /// points): the two buttons must stay inside the window instead of being clipped at its edges.
+    /// points): the New document button must stay inside the window instead of being clipped at its edges.
     #[test]
     fn start_screen_buttons_stay_inside_a_narrow_canvas() {
         use egui_kittest::kittest::Queryable;
@@ -7319,11 +7317,9 @@ mod tests {
             PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::default());
             h.state_mut().1 = true;
             h.run_steps(3);
-            for label in ["New document", "Join us on Discord"] {
-                for node in h.query_all_by_label_contains(label) {
-                    let r = node.rect();
-                    assert!(r.left() >= 0.0 && r.right() <= width, "`{label}` is clipped in a {width}-point-wide canvas: {r:?}");
-                }
+            for node in h.query_all_by_label_contains("New document") {
+                let r = node.rect();
+                assert!(r.left() >= 0.0 && r.right() <= width, "`New document` is clipped in a {width}-point-wide canvas: {r:?}");
             }
         }
     }

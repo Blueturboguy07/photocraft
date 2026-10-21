@@ -112,7 +112,7 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
     if let Some(result) = crate::panel_docking::command(app, id, &params) {
         return result;
     }
-    // Help › Discord, website, GitHub, Report an Issue.
+    // Help › website, GitHub, Report an Issue.
     if let Some(url) = crate::links::url_for(id) {
         return Ok(crate::links::open(app, ctx, url));
     }

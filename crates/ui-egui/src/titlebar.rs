@@ -679,8 +679,7 @@ mod tests {
 
     #[test]
     fn the_title_bar_promotes_no_community_chat() {
-        // Issue #1726: only the always-visible title-bar button is removed. The start-screen
-        // and About buttons and Help › Discord remain available.
+        // Issue #1726: the title bar has no community chat button.
         for width in [760.0, 1100.0, 1440.0] {
             let mut w = Win::new(width);
             w.frame(vec![]);
