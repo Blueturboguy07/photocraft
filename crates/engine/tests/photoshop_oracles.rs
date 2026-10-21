@@ -1,5 +1,5 @@
 //! Re-render oracle over the Photoshop corpus (`corpus/photoshop`): our own Photoshop-authored
-//! PSDs from https://github.com/storytold/photocraft-corpus, fetched at a pinned commit by
+//! PSDs from https://github.com/Blueturboguy07/photocraft-corpus, fetched at a pinned commit by
 //! `cargo xtask corpus --all`. Feature `corpus` (run with `cargo xtask test-corpus`); a missing
 //! corpus fails.
 //!

@@ -1,6 +1,6 @@
 //! Krita documents opened through the session: read-only source, 16-bit layers, editable
 //! layers with history, and saving as OpenRaster or native. The files come from
-//! `tools/krita-oracles/generate.py` in https://github.com/storytold/photocraft-corpus. Run with
+//! `tools/krita-oracles/generate.py` in https://github.com/Blueturboguy07/photocraft-corpus. Run with
 //! `KRITA_TEST_DIR=<dir> cargo test -p photocraft-engine --test kra -- --ignored --nocapture`.
 use photocraft_engine::Session;
 use serde_json::json;

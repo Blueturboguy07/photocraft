@@ -1,5 +1,5 @@
 //! Community and project links: the Help menu, the About dialog, the start screen and the title
-//! bar all open these. URLs follow the crafting-app pattern (`getartcraft.com/apps/<app>`,
+//! bar all open these. URLs follow the crafting-app pattern (`publikhq.com/<app>`,
 //! `github.com/storytold/<app>`).
 
 use serde_json::{Value, json};
@@ -7,10 +7,10 @@ use serde_json::{Value, json};
 use crate::PhotocraftApp;
 
 pub const DISCORD: &str = "https://discord.gg/artcraft";
-pub const ARTCRAFT_WEBSITE: &str = "https://getartcraft.com";
-pub const APP_PAGE: &str = "https://getartcraft.com/apps/photocraft";
-pub const GITHUB: &str = "https://github.com/storytold/photocraft";
-pub const ISSUES: &str = "https://github.com/storytold/photocraft/issues";
+pub const ARTCRAFT_WEBSITE: &str = "https://publikhq.com/adobe";
+pub const APP_PAGE: &str = "https://publikhq.com/photocraft";
+pub const GITHUB: &str = "https://github.com/Blueturboguy07/photocraft";
+pub const ISSUES: &str = "https://github.com/Blueturboguy07/photocraft/issues";
 
 /// Help-menu link commands: (id, url). Labels live in `menus::UI_COMMANDS`.
 pub const COMMANDS: &[(&str, &str)] =
@@ -114,8 +114,8 @@ mod tests {
         let ctx = egui::Context::default();
         for (id, url) in [
             ("help.discord", "https://discord.gg/artcraft"),
-            ("help.website", "https://getartcraft.com/apps/photocraft"),
-            ("help.github", "https://github.com/storytold/photocraft"),
+            ("help.website", "https://publikhq.com/photocraft"),
+            ("help.github", "https://github.com/Blueturboguy07/photocraft"),
         ] {
             let r = crate::menus::invoke(&mut app, &ctx, id, serde_json::json!({})).unwrap();
             assert_eq!(r["url"], url);

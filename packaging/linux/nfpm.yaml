@@ -14,7 +14,7 @@ section: graphics
 priority: optional
 maintainer: ${PHOTOCRAFT_MAINTAINER}
 vendor: Learning Machines LLC
-homepage: https://getartcraft.com/apps/photocraft
+homepage: https://publikhq.com/photocraft
 license: MIT OR Apache-2.0
 description: |-
   Open-source, native image editor with familiar, professional tools.

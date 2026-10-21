@@ -1021,7 +1021,7 @@ pub const SECTIONS: [(&str, &str); 18] = [
 ];
 
 /// Preferences that nothing reads yet, so Edit › Preferences doesn't show them: a control that
-/// does nothing is worse than a missing one (https://github.com/storytold/photocraft/issues/204).
+/// does nothing is worse than a missing one (https://github.com/Blueturboguy07/photocraft/issues/204).
 /// They still load, save and round-trip through `prefs.get` / `prefs.set` unchanged.
 ///
 /// When you implement one, remove it here; the `prefs_usage` test fails while a listed
