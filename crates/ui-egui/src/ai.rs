@@ -633,6 +633,11 @@ enum Shape {
 impl Shape {
     const ALL: [Shape; 3] = [Shape::Square, Shape::Landscape, Shape::Portrait];
 
+    /// The shapes a provider can draw: publik API draws 1024x1024 only; a person's own key has all three.
+    fn offered(publik: bool) -> &'static [Shape] {
+        if publik { &Self::ALL[..1] } else { &Self::ALL[..] }
+    }
+
     fn id(self) -> &'static str {
         match self {
             Shape::Square => "square",
@@ -679,10 +684,14 @@ fn image_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, fields: &mut Map<Strin
     ai.image.prompt = prompt.clone();
     ui.add_space(8.0);
     let mut shape = Shape::from_id(fields.get("shape").and_then(Value::as_str).unwrap_or(""));
+    let shapes = Shape::offered(provider.is_publik());
+    if !shapes.contains(&shape) {
+        shape = Shape::Square;
+    }
     ui.horizontal(|ui| {
         ui.label(RichText::new("Shape").color(t.text));
         ui.add_enabled_ui(!busy, |ui| {
-            for s in Shape::ALL {
+            for s in shapes.iter().copied() {
                 if ui.radio(shape == s, s.label()).clicked() {
                     shape = s;
                 }
@@ -862,6 +871,8 @@ fn start_fill(app: &mut PhotocraftApp, ctx: &egui::Context, prompt: &str) -> Res
     }
     let provider = ai.state.provider();
     let prompt = prompt.to_string();
+    // publik API draws 1024x1024 only; the fill is scaled to the selection afterwards either way.
+    let size = if provider.is_publik() { SIZES[0] } else { size };
     let rx = craft_publik::ui::spawn(ctx, move || fill_work(&provider, &doc, region, size, &prompt));
     ai.fill.start(FillJob { rx, target });
     Ok(())
@@ -934,7 +945,7 @@ fn start_image(app: &mut PhotocraftApp, ctx: &egui::Context, prompt: &str, shape
     let provider = ai.state.provider();
     let name = layer_name(prompt, "Generated Image");
     let prompt = prompt.to_string();
-    let size = shape.size();
+    let size = if provider.is_publik() { Shape::Square.size() } else { shape.size() };
     let rx = craft_publik::ui::spawn(ctx, move || {
         let reply = client::image_generate(&provider, &prompt, size)?;
         let (width, height, rgba) = decode_rgba8(&reply.bytes).map_err(local)?;
@@ -1167,3 +1178,15 @@ impl Drop for Scratch {
 #[cfg(test)]
 #[path = "ai_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod publik_shape_tests {
+    use super::Shape;
+
+    #[test]
+    fn publik_api_offers_square_only() {
+        assert_eq!(Shape::offered(true).len(), 1);
+        assert_eq!(Shape::offered(true)[0].size(), "1024x1024");
+        assert_eq!(Shape::offered(false).len(), 3);
+    }
+}
