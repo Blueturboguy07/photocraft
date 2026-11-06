@@ -76,6 +76,9 @@ mod single_instance;
 mod tablet;
 mod ui_state;
 mod window_frame;
+// publik's usage counts (README: Usage counts). The file is publik's reference client, kept as it is.
+#[rustfmt::skip]
+mod publik_telemetry;
 
 use photocraft_engine::Session;
 use photocraft_ui_egui::PhotocraftApp;
@@ -460,6 +463,12 @@ mod launch_args_tests {
     }
 }
 
+/// The version in publik's usage counts: the release tag without its `v`, for example `0.9.0-publik.4`.
+/// The build number comes from `packaging/PUBLIK_BUILD`, the file the bundle version comes from.
+fn publik_version() -> String {
+    format!("{}-publik.{}", env!("CARGO_PKG_VERSION"), include_str!("../../../packaging/PUBLIK_BUILD").trim())
+}
+
 fn main() -> eframe::Result {
     // Builder check (publikhq.com/skills/setup.md): the built app provisions publik API for real
     // and prints one line. The builder who runs it is the consent. Before anything else, so the
@@ -635,6 +644,10 @@ fn main() -> eframe::Result {
     } else {
         None
     };
+    // publik's usage counts: `app_opened` now, `active_session` every 30 minutes, on a background
+    // thread. After every early exit above (`--version`, the self-test, usage errors, a launch handed
+    // to the running PhotoCraft, control set-up errors), so those send nothing.
+    publik_telemetry::start("photocraft", &publik_version(), None);
     // Finder / Dock / Open With deliver files as Apple events, not arguments; catch the one that
     // launched us as well as later ones. Lives until the event loop returns.
     #[cfg(target_os = "macos")]
