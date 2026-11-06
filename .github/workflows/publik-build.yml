@@ -11,18 +11,27 @@ on:
   push:
     branches: ["telemetry/**"]
   workflow_dispatch:
+    inputs:
+      runner:
+        # GitHub cancelled two runs of this job in the queue ("The job was not acquired by Runner of
+        # type hosted", capacity limits for macOS arm64 runners). The Intel image is another pool.
+        # It builds the same two targets from the same commit.
+        description: "Runner image: macos-15 (arm64, the default) or macos-15-intel (when no arm64 runner is free)"
+        type: choice
+        default: macos-15
+        options: [macos-15, macos-15-intel]
 
 permissions:
   contents: read
 
 concurrency:
-  group: publik-build-${{ github.ref }}
+  group: publik-build-${{ github.ref }}-${{ inputs.runner || 'macos-15' }}
   cancel-in-progress: true
 
 jobs:
   macos:
     name: macOS universal (unsigned)
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner || 'macos-15' }}
     timeout-minutes: 150
     env:
       CARGO_TERM_COLOR: always
