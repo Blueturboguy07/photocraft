@@ -23,6 +23,8 @@ name = "photocraft-cli"
 path = "src/main.rs"
 
 [dependencies]
+# publik's usage counts (src/publik_telemetry.rs): the HTTP client that file needs.
+ureq = "2"
 photocraft-automation = { path = "../../crates/automation" }
 photocraft-engine = { workspace = true }
 photocraft-io = { workspace = true }
