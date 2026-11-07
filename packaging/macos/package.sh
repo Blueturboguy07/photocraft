@@ -20,7 +20,7 @@ HERE="$ROOT/packaging/macos"
 
 ARCH=universal
 SKIP_BUILD=0
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --arch) ARCH="$2"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
@@ -49,11 +49,11 @@ DMG="$DIST/photocraft-$VERSION-macos-$ARCH.dmg"
 CLI_ZIP="$DIST/photocraft-cli-$VERSION-macos-$ARCH.zip"
 
 NOTARIZE=0
-if [ "$IDENTITY" = "-" ]; then
+if [[ "$IDENTITY" = "-" ]]; then
   warn "macOS: ad-hoc signing (no MACOS_SIGN_IDENTITY); artifacts are not notarized"
-elif [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+elif [[ -n "${APPLE_ID:-}" ]] && [[ -n "${APPLE_PASSWORD:-}" ]] && [[ -n "${APPLE_TEAM_ID:-}" ]]; then
   NOTARIZE=1
-elif [ -n "${NOTARY_PROFILE:-}" ]; then
+elif [[ -n "${NOTARY_PROFILE:-}" ]]; then
   # A local build: `xcrun notarytool store-credentials <profile>` holds the Apple ID in the keychain.
   NOTARIZE=1
 else
@@ -63,7 +63,7 @@ fi
 echo "==> PhotoCraft $VERSION for macOS ($ARCH), identity: $IDENTITY, notarize: $NOTARIZE"
 
 # ---- build -------------------------------------------------------------------------------------
-if [ "$SKIP_BUILD" = 0 ]; then
+if [[ "$SKIP_BUILD" = 0 ]]; then
   args=()
   for t in "${TARGETS[@]}"; do args+=(--target "$t"); done
   (cd "$ROOT" && cargo build --release --locked -p photocraft -p photocraft-cli --features heif "${args[@]}")
@@ -82,16 +82,16 @@ done
 sign() {
   # Hardened runtime + secure timestamp for a real identity; ad-hoc can't be timestamped.
   local ts=(--timestamp)
-  [ "$IDENTITY" = "-" ] && ts=(--timestamp=none)
+  [[ "$IDENTITY" = "-" ]] && ts=(--timestamp=none)
   local kc=()
-  [ -n "${MACOS_KEYCHAIN:-}" ] && kc=(--keychain "$MACOS_KEYCHAIN")
+  [[ -n "${MACOS_KEYCHAIN:-}" ]] && kc=(--keychain "$MACOS_KEYCHAIN")
   codesign --force --sign "$IDENTITY" ${kc[@]+"${kc[@]}"} "${ts[@]}" "$@"
 }
 
 notarize() {
   local file="$1" out id status
   local auth=()
-  if [ -n "${NOTARY_PROFILE:-}" ]; then
+  if [[ -n "${NOTARY_PROFILE:-}" ]]; then
     auth=(--keychain-profile "$NOTARY_PROFILE")
   else
     auth=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID")
@@ -101,8 +101,8 @@ notarize() {
   echo "$out"
   id="$(printf '%s' "$out" | plutil -extract id raw -o - - 2>/dev/null || true)"
   status="$(printf '%s' "$out" | plutil -extract status raw -o - - 2>/dev/null || true)"
-  if [ "$status" != "Accepted" ]; then
-    if [ -n "$id" ]; then
+  if [[ "$status" != "Accepted" ]]; then
+    if [[ -n "$id" ]]; then
       xcrun notarytool log "$id" "${auth[@]}" || true
     fi
     echo "error: notarization of $(basename "$file") failed (status: ${status:-unknown})" >&2
@@ -110,14 +110,35 @@ notarize() {
   fi
 }
 
+# Stapling and validating both look the ticket up in Apple's CloudKit service. Right after
+# notarization that lookup can drop the connection ("The network connection was lost", error 68)
+# even though the ticket exists, so retry the pair a few times before failing the release.
+staple() {
+  local file="$1" attempt
+  for attempt in 1 2 3 4 5; do
+    if xcrun stapler staple "$file" && xcrun stapler validate "$file"; then
+      return
+    fi
+    if [[ "$attempt" = 5 ]]; then
+      echo "error: stapling $(basename "$file") failed after $attempt attempts" >&2
+      exit 1
+    fi
+    echo "stapling $(basename "$file") failed (attempt $attempt); retrying in $((attempt * 20))s" >&2
+    sleep $((attempt * 20))
+  done
+}
+
 # ---- PhotoCraft.app ----------------------------------------------------------------------------
 echo "==> assembling $APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 # Executable and icon carry the display name (CFBundleExecutable / CFBundleIconFile).
 cp "$WORK/bin/photocraft" "$APP/Contents/MacOS/PhotoCraft"
+cp "$WORK/bin/photocraft-cli" "$APP/Contents/MacOS/photocraft-cli"
 cp "$ROOT/assets/app-icon/photocraft.icns" "$APP/Contents/Resources/PhotoCraft.icns"
+# Notices for the bundled font fallback, included before the bundle is signed.
+cp "$ROOT/NOTICE" "$ROOT/ATTRIBUTION.md" "$APP/Contents/Resources/"
 # Licences of the embedded craft-fonts fonts (only when built with CRAFT_FONTS_DIR).
-if [ -n "${CRAFT_FONTS_DIR:-}" ]; then
+if [[ -n "${CRAFT_FONTS_DIR:-}" ]]; then
   mkdir -p "$APP/Contents/Resources/Licenses"
   copy_font_licences "$APP/Contents/Resources/Licenses"
 fi
@@ -128,16 +149,16 @@ plutil -lint "$APP/Contents/Info.plist"
 printf 'APPL????' >"$APP/Contents/PkgInfo"
 
 # Sign inside-out: nested code first, then the bundle itself (no --deep on the final signature).
-# Today the only nested code is the main executable; frameworks/helpers would be signed here too.
+# The bundled CLI is nested executable code; sign it before sealing the app bundle.
+sign --options runtime --identifier ai.storyteller.photocraft-cli "$APP/Contents/MacOS/photocraft-cli"
 sign --options runtime --entitlements "$HERE/entitlements.plist" "$APP/Contents/MacOS/PhotoCraft"
 sign --options runtime --entitlements "$HERE/entitlements.plist" "$APP"
 codesign --verify --strict --deep --verbose=2 "$APP"
 
-if [ "$NOTARIZE" = 1 ]; then
+if [[ "$NOTARIZE" = 1 ]]; then
   ditto -c -k --keepParent "$APP" "$WORK/PhotoCraft-notarize.zip"
   notarize "$WORK/PhotoCraft-notarize.zip"
-  xcrun stapler staple "$APP"
-  xcrun stapler validate "$APP"
+  staple "$APP"
   spctl --assess --type execute -vvv "$APP"
 fi
 
@@ -167,7 +188,7 @@ hdiutil_retry() {
     if hdiutil "$@"; then
       return 0
     fi
-    [ "$attempt" = 5 ] && { echo "hdiutil $what failed 5 times" >&2; return 1; }
+    [[ "$attempt" = 5 ]] && { echo "hdiutil $what failed 5 times" >&2; return 1; }
     echo "hdiutil $what failed (attempt $attempt of 5); retrying in $((attempt * 10))s" >&2
     sleep $((attempt * 10))
   done
@@ -185,10 +206,9 @@ if ! codesign --verify --strict --deep --verbose=2 "$MOUNT/PhotoCraft.app"; then
   exit 1
 fi
 hdiutil_retry detach detach "$MOUNT" >/dev/null
-if [ "$NOTARIZE" = 1 ]; then
+if [[ "$NOTARIZE" = 1 ]]; then
   notarize "$DMG"
-  xcrun stapler staple "$DMG"
-  xcrun stapler validate "$DMG"
+  staple "$DMG"
   spctl --assess --type open --context context:primary-signature -vvv "$DMG"
 fi
 
@@ -206,7 +226,7 @@ rm -f "$CLI_ZIP"
 ditto -c -k --keepParent "$CLI_DIR" "$CLI_ZIP"
 # notarytool accepts a zip of the bare binary. A bare Mach-O can't carry a stapled ticket, so
 # Gatekeeper looks the notarization up online when a quarantined copy first runs.
-if [ "$NOTARIZE" = 1 ]; then notarize "$CLI_ZIP"; fi
+if [[ "$NOTARIZE" = 1 ]]; then notarize "$CLI_ZIP"; fi
 
 "$WORK/bin/photocraft-cli" --version
 echo "==> done (check the artifacts as shipped with packaging/macos/verify.sh --arch $ARCH)"

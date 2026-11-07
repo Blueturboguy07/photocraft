@@ -12,12 +12,15 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  # publik's copy of craft-common-actions has no refresh-contributors.yml and no
+  # contributors-artifact input, so upstream's credits job is not here.
   release:
     # publik's trimmed copy of storytold/craft-common-actions (free macOS runner, Windows x64 only,
     # Linux and Flatpak off). Tracked at @main like upstream.
@@ -25,7 +28,7 @@ jobs:
     with:
       app-name: photocraft
       app-title: PhotoCraft
-      craft-fonts-ref: abb83316d96aa59c1cf64784289e378fe9fa5695
+      craft-fonts-ref: b076417b5880bd4154bd22f00695b1d28c6bea83
       version: ${{ inputs.version }}
       # publik has no Windows certificate yet: the x64 build ships unsigned and says so.
       windows-signing-required: false

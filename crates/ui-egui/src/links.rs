@@ -8,6 +8,8 @@ use crate::PhotocraftApp;
 
 pub const ARTCRAFT_WEBSITE: &str = "https://publikhq.com/adobe";
 pub const APP_PAGE: &str = "https://publikhq.com/photocraft";
+/// The start screen's Learn link: PhotoCraft's publik page (publik has no tutorials page).
+pub const TUTORIALS: &str = APP_PAGE;
 pub const GITHUB: &str = "https://github.com/Blueturboguy07/photocraft";
 pub const ISSUES: &str = "https://github.com/Blueturboguy07/photocraft/issues";
 
@@ -92,7 +94,19 @@ mod tests {
     fn help_menu_lists_links_then_separator_then_system_info_and_about() {
         let app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
         let help: Vec<String> = crate::menus::menu_items(&app).into_iter().filter(|i| i.path == ["Help"]).map(|i| i.id).collect();
-        assert_eq!(help, ["help.website", "help.artcraftWebsite", "help.github", "help.reportIssue", "---", "help.systemInfo", "help.about"]);
+        assert_eq!(
+            help,
+            [
+                "help.website",
+                "help.artcraftWebsite",
+                "help.github",
+                "help.reportIssue",
+                "help.checkForUpdates",
+                "---",
+                "help.systemInfo",
+                "help.about"
+            ]
+        );
         for (id, _) in COMMANDS {
             assert!(crate::menus::is_live(id) && crate::menus::is_enabled(&app, id), "{id}");
         }

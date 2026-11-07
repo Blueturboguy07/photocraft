@@ -494,7 +494,7 @@ fn prompt_box(ui: &mut egui::Ui, fields: &mut Map<String, Value>, salt: &str, la
     ui.add_space(2.0);
     let mut prompt = fields.get("prompt").and_then(Value::as_str).unwrap_or("").to_string();
     let edit = egui::TextEdit::multiline(&mut prompt)
-        .id(egui::Id::new(("ai-prompt", salt)))
+        .id(egui::Id::unique(("ai-prompt", salt)))
         .hint_text(hint)
         .desired_rows(3)
         .desired_width(f32::INFINITY)
@@ -979,7 +979,8 @@ fn clip_of(at: Rect, rgba: &[u8]) -> Result<photocraft_engine::edit_cmds::Clip, 
     }
     let mut surface = photocraft_raster::Surface::from_interleaved(photocraft_color::PixelFormat::RGBA8, at, rgba);
     surface.prune();
-    Ok(photocraft_engine::edit_cmds::Clip { surface, bounds: at, layers: None, resolution: None })
+    // An image from the service, as from another app: no source document, board, SVG or channels.
+    Ok(photocraft_engine::edit_cmds::Clip { svg: None, components: None, surface, bounds: at, layers: None, resolution: None, source: None, board: None })
 }
 
 /// A fill into the active document, through Edit › Paste Special › Paste Into: a new layer whose
