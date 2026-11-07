@@ -22,6 +22,9 @@ jobs:
   # publik's copy of craft-common-actions has no refresh-contributors.yml and no
   # contributors-artifact input, so upstream's credits job is not here.
   release:
+    # publik's release tags (v*-publik.*) never run this workflow: publik builds with
+    # publik-build.yml and signs on its own Mac.
+    if: ${{ !contains(github.ref, '-publik') }}
     # publik's trimmed copy of storytold/craft-common-actions (free macOS runner, Windows x64 only,
     # Linux and Flatpak off). Tracked at @main like upstream.
     uses: Blueturboguy07/craft-common-actions/.github/workflows/release.yml@main
