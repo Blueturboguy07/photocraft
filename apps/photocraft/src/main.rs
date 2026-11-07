@@ -72,6 +72,9 @@ mod startup_report;
 // Tablet support (macOS AppKit monitor, Linux X11/Wayland, Windows barrel button).
 mod tablet;
 mod ui_state;
+// Upstream's release check through craft-update. publik's build does not install it as a
+// service (see `check_updates` in services.rs), so nothing calls it.
+#[allow(dead_code)]
 mod updates;
 mod window_frame;
 // publik's usage counts (README: Usage counts). The file is publik's reference client, kept as it is.

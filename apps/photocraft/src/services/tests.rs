@@ -217,8 +217,9 @@ fn open_filters_keep_literal_extensions_on_windows_and_macos() {
 }
 
 #[test]
-fn native_services_provide_update_transport() {
-    assert!(native(None).check_updates.is_some());
+fn native_services_have_no_update_transport_in_publiks_build() {
+    // publik's launcher installs updates; the app never checks storytold's releases.
+    assert!(native(None).check_updates.is_none());
 }
 
 #[test]
