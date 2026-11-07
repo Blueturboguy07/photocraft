@@ -56,6 +56,13 @@ jobs:
         with:
           key: publik-build-macos-universal
           cache-on-failure: true
+      - name: Test publik's AI step (crates/ui-egui/src/ai.rs), its links and the catalogs
+        # The job fails here when a port onto a new upstream release breaks publik's changes.
+        # .cargo/config.toml sets DO_NOT_TRACK=1, so the tests send no usage counts.
+        run: |
+          cargo test --locked -p photocraft-ui-egui --lib -- ai:: links:: i18n::tests::
+          # The release build below uses other target folders: free the disk the tests used.
+          rm -rf target/debug
       - name: Build and package (ad-hoc signature, no notarization)
         run: |
           # The short commit, as publik's earlier builds carry it (<APP>_BUILD_SHA).
