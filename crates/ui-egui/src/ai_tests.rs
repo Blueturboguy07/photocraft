@@ -17,10 +17,25 @@ fn plain_app() -> PhotocraftApp {
     PhotocraftApp::new(photocraft_engine::Session::new(), Services::default())
 }
 
+/// The build facts of these tests: no token, no settings folder, and no credential file of this
+/// computer's (the slug is nobody's).
+fn test_info() -> AppInfo {
+    AppInfo {
+        slug: "photocraft-tests",
+        name: "PhotoCraft",
+        version: "0.0.0",
+        app_token: "",
+        uses_ai: true,
+        endpoints: craft_publik::Endpoints::DEFAULT,
+        dialects: &["images"],
+        config_dir: None,
+    }
+}
+
 /// AI on, with a key of the person's own (never used: nothing is sent unless a test serves it),
 /// and no settings file or publik credential of this computer's.
 fn ai_on(app: &mut PhotocraftApp) {
-    let mut ai = Ai::new(AppInfo { slug: "photocraft-tests", name: "PhotoCraft", version: "0.0.0", app_token: "", dialects: &["images"], config_dir: None });
+    let mut ai = Ai::new(test_info());
     ai.skip_first_run();
     ai.state.settings.provider = "own".into();
     ai.state.settings.own_key = "sk-test".into();
@@ -132,13 +147,22 @@ fn ai_settings_open_preferences_on_the_ai_section() {
 #[test]
 fn the_setup_dialog_opens_once_on_a_quiet_first_launch() {
     let mut app = plain_app();
-    let ai = Ai::new(AppInfo { slug: "photocraft-tests", name: "PhotoCraft", version: "0.0.0", app_token: "", dialects: &["images"], config_dir: None });
+    let ai = Ai::new(test_info());
     if !ai.state.wants_first_run() {
         // (PUBLIK_API_KEY is set where these tests run: AI is set up already)
         return;
     }
     app.ai = Some(ai);
     let ctx = egui::Context::default();
+    // The publik gate holds the first launch's dialog until it passed; a test has no gate.
+    for _ in 0..6 {
+        frame(&mut app, &ctx);
+    }
+    assert!(app.ui.dialogs.is_empty(), "nothing opens before the gate passed");
+    // Once the gate passed, `frame` asks for the setup flow (`open_setup`); ask the same way.
+    if let Some(ai) = app.ai.as_mut() {
+        ai.open_setup = true;
+    }
     // not while another dialog shows
     let other = app.ui.open_dialog(crate::state::DialogKind::About, Default::default());
     for _ in 0..6 {
@@ -158,7 +182,7 @@ fn the_setup_dialog_opens_once_on_a_quiet_first_launch() {
 
     // an agent driving the app sees no setup dialog
     let mut driven = plain_app();
-    let mut ai = Ai::new(AppInfo { slug: "photocraft-tests", name: "PhotoCraft", version: "0.0.0", app_token: "", dialects: &["images"], config_dir: None });
+    let mut ai = Ai::new(test_info());
     ai.skip_first_run();
     driven.ai = Some(ai);
     for _ in 0..6 {

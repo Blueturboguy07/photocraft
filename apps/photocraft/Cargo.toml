@@ -16,8 +16,9 @@ heif = ["photocraft-codecs/heif"]
 workspace = true
 
 [dependencies]
-# publik's usage counts (src/publik_telemetry.rs): the HTTP client that file needs.
-ureq = "2"
+# The publik module (pinned in the root Cargo.toml): Sign in with publik at start-up (`src/publik.rs`),
+# usage counting, and the AI pay choice.
+craft-publik = { workspace = true }
 photocraft-doc = { workspace = true }
 photocraft-color = { workspace = true }
 photocraft-raster = { workspace = true }

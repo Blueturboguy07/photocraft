@@ -196,8 +196,11 @@ pub fn frame(app: &mut PhotocraftApp, _ctx: &egui::Context) {
     let fill = take_fill(ai);
     let image = take_image(ai);
     ai.frames = ai.frames.saturating_add(1);
-    if !ai.first_run_checked && ai.frames > 3 {
+    // The first launch asks once the publik gate passed and the window is up (a few frames in):
+    // after "Use my own key" at the gate, the own-key form. "Later" ends that for good.
+    if !ai.first_run_checked && ai.frames > 3 && craft_publik::gate::passed() {
         ai.first_run_checked = true;
+        ai.state.reload_credential(); // the gate wrote it after this state was created
         ai.open_setup = ai.state.wants_first_run() || ai.state.owes_first_card();
     }
     let open_setup = std::mem::take(&mut ai.open_setup);
@@ -470,7 +473,7 @@ fn not_ready(app: &mut PhotocraftApp, ui: &mut egui::Ui, what: &str) -> Option<O
     if provider.is_set_up() {
         return None;
     }
-    ui.label(format!("{what} needs AI. Set it up first: publik API (no key to paste) or your own key."));
+    ui.label(format!("{what} needs AI. Set it up first: connect your publik plan (no key to paste) or use your own key."));
     ui.add_space(8.0);
     let mut setup = false;
     let hit = ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {

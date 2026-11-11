@@ -77,33 +77,37 @@ mod ui_state;
 #[allow(dead_code)]
 mod updates;
 mod window_frame;
-// publik's usage counts (README: Usage counts). The file is publik's reference client, kept as it is.
-#[rustfmt::skip]
-mod publik_telemetry;
+// Sign in with publik, usage counting and the AI pay choice: this build's publik facts and the
+// gate every publik app opens with.
+mod publik;
 
 use photocraft_engine::Session;
 use photocraft_ui_egui::PhotocraftApp;
 
 use photocraft_ui_egui::os_window::APP_ID;
 
-/// What publik needs to know about this build. The app token is public by design (it can only mint
-/// capped keys attributed to PhotoCraft) and lives at the repository root, so source builds carry
-/// it. AI settings (`ai.json`) go in `config_dir`, next to `preferences.json`.
-fn app_info(config_dir: Option<std::path::PathBuf>) -> photocraft_ui_egui::ai::AppInfo {
-    photocraft_ui_egui::ai::AppInfo {
-        slug: "photocraft",
-        name: "PhotoCraft",
-        version: env!("CARGO_PKG_VERSION"),
-        app_token: include_str!("../../../publik-app-token.txt"),
-        dialects: &["images"],
-        config_dir,
-    }
-}
+/// The app and the publik gate. `PhotocraftApp` is the eframe app; this wrapper only puts the
+/// gate in front of it.
+struct App(PhotocraftApp, craft_publik::ui::Gate);
 
-/// The version in publik's usage counts: the release tag without its `v`, for example `0.21.0-publik.6`.
-/// The build number comes from `packaging/PUBLIK_BUILD`, the file the bundle version comes from.
-fn publik_version() -> String {
-    format!("{}-publik.{}", env!("CARGO_PKG_VERSION"), include_str!("../../../packaging/PUBLIK_BUILD").trim())
+impl eframe::App for App {
+    fn on_exit(&mut self) {
+        eframe::App::on_exit(&mut self.0);
+    }
+    fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        eframe::App::logic(&mut self.0, ctx, frame);
+    }
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        eframe::App::raw_input_hook(&mut self.0, ctx, raw_input);
+    }
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        // Sign in with publik comes first: the gate draws itself until the person is signed in
+        // (and, the first time, has chosen how the app pays for AI). Nothing of the app shows before.
+        if !self.1.ui(ui) {
+            return;
+        }
+        eframe::App::ui(&mut self.0, ui, frame);
+    }
 }
 
 /// Windows and Linux can use the app's title bar, with its own caption buttons and edge resizing
@@ -374,7 +378,7 @@ fn main() -> eframe::Result {
     // arguments, so the check opens no window and leaves no log file.
     if std::env::var_os("PUBLIK_SELF_TEST").is_some() {
         use std::io::Write as _;
-        let line = photocraft_ui_egui::ai::self_test(&app_info(services::config_dir()));
+        let line = craft_publik::self_test(&publik::app_info(services::config_dir()));
         let mut out = std::io::stdout().lock();
         let _ = writeln!(out, "{line}").and_then(|()| out.flush());
         return Ok(());
@@ -435,11 +439,10 @@ fn main() -> eframe::Result {
 
     // Bind and authenticate the authorized control listener before display/GPU initialization.
     let control = control_setup(control_port, auth, &automation);
-    // publik's usage counts: `app_opened` now, `active_session` every 30 minutes, on a background
-    // thread. After every early exit above (the update helper, the self-test, `--help`,
-    // `--version` and usage errors, a launch handed to the running PhotoCraft, control set-up
-    // errors), so those send nothing.
-    publik_telemetry::start("photocraft", &publik_version(), None);
+    // publik's usage counts (`app_opened` now, `active_session` every 30 minutes) start once the
+    // gate passed (`publik::app_info`, `craft_publik::ui::Gate`), so the update helper, the
+    // self-test, `--help`, `--version`, usage errors, a launch handed to the running PhotoCraft
+    // and control set-up errors send nothing.
 
     #[cfg(target_os = "linux")]
     let native_session = linux_libs::session_from_env(|name| std::env::var(name).ok());
@@ -569,7 +572,7 @@ fn main() -> eframe::Result {
             // with a settings folder to keep the choice in; the first-launch dialog stays closed
             // while an agent drives the app over `--control`.
             if let Some(dir) = services::config_dir() {
-                let mut ai = photocraft_ui_egui::ai::Ai::new(app_info(Some(dir)));
+                let mut ai = photocraft_ui_egui::ai::Ai::new(publik::app_info(Some(dir)));
                 if control.is_some() {
                     ai.skip_first_run();
                 }
@@ -744,7 +747,11 @@ fn main() -> eframe::Result {
             if let Some(w) = &app_dirs::current().warning {
                 photocraft_ui_egui::notices::post(&mut app, "Portable mode is off", vec![w.clone()], false, None);
             }
-            Ok(Box::new(app))
+            Ok(Box::new(App(
+                app,
+                // Sign in with publik: provisioning starts now, on a worker thread; `ui` draws it.
+                craft_publik::ui::Gate::new(publik::app_info(services::config_dir())),
+            )))
         }),
     );
     // The window is gone: refuse further files and free the lock, so a launch that is waiting (or
