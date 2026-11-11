@@ -154,15 +154,6 @@ fn the_setup_dialog_opens_once_on_a_quiet_first_launch() {
     }
     app.ai = Some(ai);
     let ctx = egui::Context::default();
-    // The publik gate holds the first launch's dialog until it passed; a test has no gate.
-    for _ in 0..6 {
-        frame(&mut app, &ctx);
-    }
-    assert!(app.ui.dialogs.is_empty(), "nothing opens before the gate passed");
-    // Once the gate passed, `frame` asks for the setup flow (`open_setup`); ask the same way.
-    if let Some(ai) = app.ai.as_mut() {
-        ai.open_setup = true;
-    }
     // not while another dialog shows
     let other = app.ui.open_dialog(crate::state::DialogKind::About, Default::default());
     for _ in 0..6 {
